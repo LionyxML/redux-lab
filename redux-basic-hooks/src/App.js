@@ -1,6 +1,6 @@
 import "./App.css";
 import { useSelector, useDispatch } from "react-redux";
-import { incrementA, selectA } from "./index";
+import { incrementA, useSelectA } from "./index";
 
 function App() {
   // The hooks way
@@ -13,7 +13,7 @@ function App() {
   const bbb = useSelector((state) => state.bbb);
 
   // The "another" way
-  const aValue = selectA();
+  const aValue = useSelectA();
 
   return (
     <div className="App">

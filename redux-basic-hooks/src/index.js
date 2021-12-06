@@ -2,7 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom";
 import "./index.css";
 import App from "./App";
-import { Provider } from "react-redux";
+import { Provider, useSelector } from "react-redux";
 import { createStore, applyMiddleware } from "redux";
 import logger from "redux-logger";
 
@@ -44,7 +44,7 @@ function reducer(state = initialState, action) {
 const store = createStore(reducer, applyMiddleware(logger));
 
 // REDUX: Selectors
-export const selectA = () => store.getState().aaa;
+export const useSelectA = () => useSelector((state) => state.aaa);
 
 // REDUX: Dispatchers
 export const incrementA = () => store.dispatch({ type: "INCREMENT_A" });
