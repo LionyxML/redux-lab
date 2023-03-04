@@ -1,54 +1,55 @@
-import { from, of } from "rxjs";
-import { filter, bufferTime, mergeMap, map } from "rxjs/operators";
+import { from, Subject } from "rxjs";
+import {
+  bufferTime as bufferTime$,
+  filter as filter$,
+  map as map$,
+  mergeMap as mergeMap$,
+} from "rxjs/operators";
 
-const BATCH_DELAY = 5_000;
-let pendingActions = [];
+const batchRequestsMiddleware = (store) => {
+  const actions$ = new Subject();
 
-// Processes the batch of actions and dispatch the result
-const processBatch = (batchedActions, store) => {
-  const requests = batchedActions.map((action) => ({
-    key: action.payload.key,
-    url: action.payload.url,
-  }));
+  actions$
+    .asObservable()
+    .pipe(
+      filter$(({ type }) => type === "REQUEST_DATA_BATCHED"),
+      bufferTime$(5_000),
+      filter$((requests) => requests.length > 0),
+      map$((requests) =>
+        from(
+          Promise.all(
+            requests.map(({ payload: { url, key } }) =>
+              fetch(url)
+                .then((res) => res.json())
+                .then((data) => ({ [key]: data.name }))
+            )
+          )
+        )
+      ),
+      mergeMap$((dataObservable) => dataObservable)
+    )
+    .subscribe((data) => {
+      const formattedToStore = data.reduce((acc, curr) => {
+        const [key, value] = Object.entries(curr)[0];
+        acc[key] = value;
+        return acc;
+      }, {});
 
-  // This uses RxJS to make the batched requests and combine the results
-  const batchedRequests$ = from(requests).pipe(
-    mergeMap(({ url, key }) =>
-      from(fetch(`${url}`)).pipe(
-        mergeMap((response) => response.json()),
-        map((data) => ({ ...data, key }))
-      )
-    ),
-    bufferTime(BATCH_DELAY),
-    filter((results) => results.length > 0), // Filter empty results
-    map(
-      (results) =>
-        results.reduce((acc, curr) => ({ ...acc, [curr.key]: curr.name }), {}) // Only names for now
-    ) // Merge results into a single object with id keys
-  );
+      store.dispatch({
+        type: "BATCHED_REQUEST_SUCCESS",
+        payload: { data: formattedToStore },
+      });
+    });
 
-  // Dispatches the result of the batched requests to the store
-  batchedRequests$.subscribe((data) => {
-    store.dispatch({ type: "BATCHED_REQUEST_SUCCESS", payload: { data } });
-  });
+  return (next) => (action) => {
+    if (action.type !== "REQUEST_DATA_BATCHED") {
+      return next(action);
+    }
+
+    actions$.next(action);
+
+    return null;
+  };
 };
 
-const batchMiddleware = (store) => (next) => (action) => {
-  // Checks if the action should be batched
-  if (action.type === "REQUEST_DATA_BATCHED") {
-    pendingActions.push(action);
-
-    // Waits for the specified delay before processing the batch
-    setTimeout(() => {
-      processBatch(pendingActions, store);
-      pendingActions = [];
-    }, BATCH_DELAY);
-
-    return of({ type: "REQUEST_BATCHED" });
-  }
-
-  // Forwards the action if it's not a batched request
-  return next(action);
-};
-
-export default batchMiddleware;
+export default batchRequestsMiddleware;

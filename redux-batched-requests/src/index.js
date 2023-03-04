@@ -4,11 +4,9 @@ import "./index.css";
 import App from "./App";
 import { Provider } from "react-redux";
 import { createStore, applyMiddleware, compose } from "redux";
-//import logger from "redux-logger";
 import batchMiddleware from "./middleware";
 import { createLogger } from "redux-logger";
 
-// REDUX: Initial State
 const initialState = {
   data: {
     batched: {},
@@ -16,7 +14,6 @@ const initialState = {
   },
 };
 
-// REDUX: Root Reducer
 const reducer = (state = initialState, action) => {
   switch (action.type) {
     case "BATCHED_REQUEST_SUCCESS":
@@ -54,7 +51,6 @@ middlewares.push(
     diff: false,
   })
 );
-// REDUX: Store
 const store = createStore(
   reducer,
   composeEnhancers(applyMiddleware(...middlewares))
